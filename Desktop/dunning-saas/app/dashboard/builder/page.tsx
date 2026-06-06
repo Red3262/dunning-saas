@@ -201,12 +201,8 @@ const BuilderPage = () => {
                     onChange={(e) => handleStepChange(index, "delay_unit", e.target.value)}
                     className="bg-gray-50 border-b-2 border-gray-300 text-[#1c1c1c] px-2 py-1 cursor-pointer focus:outline-none focus:border-[#2563eb] transition-colors"
                   >
-                    <option value="minutes">Minutes</option>
-                    <option value="hours">Hours</option>
                     <option value="days">Days</option>
-                    <option value="weeks">Weeks</option>
-                    <option value="months">Months</option>
-                  </select>
+                    </select>
                   <span>after {index === 0 ? "payment fails" : "previous email"}</span>
                 </div>
 
