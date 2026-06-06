@@ -1,19 +1,44 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const router = useRouter();
+  const supabase = createClient();
 
-  // Aici vom reconecta Supabase-ul imediat ce confirmăm design-ul
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    console.log("Simulare trimitere date:", { email, password, action: isLogin ? 'login' : 'signup' });
-    setTimeout(() => setLoading(false), 1000); 
+    setErrorMsg("");
+
+    try {
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        router.push('/dashboard');
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+        router.push('/dashboard');
+      }
+    } catch (error: any) {
+      setErrorMsg(error.message || "An unexpected error occurred.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -38,6 +63,12 @@ export default function LoginPage() {
                 ? "Welcome back. Enter your credentials to continue." 
                 : "Start recovering your revenue today."}
             </p>
+
+            {errorMsg && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 text-sm font-medium rounded-xl">
+                {errorMsg}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-1">
