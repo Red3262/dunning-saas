@@ -1,0 +1,26 @@
+@import url('https://api.fontshare.com/v2/css?f[]=general-sans@200,300,400,500,600,700&display=swap');
+@import "tailwindcss";
+
+/* Aici definim paleta ta "Poster Modernist" pentru Tailwind v4 */
+@theme {
+  --color-cream: #E3E2DE;
+  --color-cobalt: #1351AA;
+  --color-jet: #141414;
+  --color-deepgray: #444343;
+  --color-muted: #7A7A7A;
+  --color-divider: #C7C7C7;
+  
+  --font-sans: "General Sans", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-cream text-jet font-sans antialiased;
+  }
+  
+  /* Forțăm eliminarea oricărui colț rotunjit și umbrelor */
+  * {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+}
