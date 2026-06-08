@@ -1,29 +1,17 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
 import { Resend } from 'resend';
 
+// 2. Baza de date: Supabase Admin Client pentru a ocoli RLS
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
-
-function calculateNextDate(currentDate: Date, delayValue: number, delayUnit: string) {
-  const next = new Date(currentDate);
-  switch (delayUnit) {
-    case 'minutes': next.setMinutes(next.getMinutes() + delayValue); break;
-    case 'hours': next.setHours(next.getHours() + delayValue); break;
-    case 'days': next.setDate(next.getDate() + delayValue); break;
-    case 'weeks': next.setDate(next.getDate() + (delayValue * 7)); break;
-    case 'months': next.setMonth(next.getMonth() + delayValue); break;
-    default: next.setDate(next.getDate() + delayValue); 
-  }
-  return next.toISOString();
-}
-
 export async function GET(req: Request) {
   try {
+    // 1. Securitate: Verifică header-ul Authorization
     const authHeader = req.headers.get('authorization');
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       return new NextResponse('Unauthorized', { status: 401 });
@@ -31,110 +19,130 @@ export async function GET(req: Request) {
 
     console.log('⚡️ Dunning Engine started...');
 
-    const { data: paymentsToProcess, error: fetchError } = await supabaseAdmin
-      .from('failed_payments')
+    // 3. Extragerea clienților: Ia toți utilizatorii care au cheile completate
+    const { data: clients, error: clientsError } = await supabaseAdmin
+      .from('client_settings')
       .select('*')
-      .eq('status', 'pending')
-      .lte('next_email_at', new Date().toISOString());
+      .not('stripe_secret_key', 'is', null)
+      .not('resend_api_key', 'is', null);
 
-    if (fetchError || !paymentsToProcess || paymentsToProcess.length === 0) {
-      return NextResponse.json({ message: 'No emails to send right now.' });
+    if (clientsError || !clients || clients.length === 0) {
+      return NextResponse.json({ message: 'No valid clients found to process.' });
     }
 
-    let emailsSent = 0;
+    let totalEmailsSent = 0;
 
-    for (const payment of paymentsToProcess) {
-      const targetStepOrder = payment.current_step + 1;
-
-      const { data: stepInfo } = await supabaseAdmin
-        .from('dunning_steps')
-        .select('*')
-        .eq('profile_id', payment.profile_id)
-        .eq('step_order', targetStepOrder)
-        .maybeSingle();
-
-      if (!stepInfo) {
-        await supabaseAdmin
-          .from('failed_payments')
-          .update({ status: 'exhausted' })
-          .eq('id', payment.id);
-        continue;
-      }
-
-      const { data: brandSettings } = await supabaseAdmin
-        .from('client_settings')
-        .select('*')
-        .eq('profile_id', payment.profile_id)
-        .single();
-
-      if (!brandSettings) continue;
-
-      const imageHtml = stepInfo.image_url 
-        ? `<div style="text-align: center; margin: 30px 0;"><img src="${stepInfo.image_url}" alt="Video Thumbnail" style="max-width: 100%; border-radius: 8px; border: 1px solid #eaeaea;" /></div>` 
-        : '';
-
-      const emailHtml = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #1c1c1c;">
-          <h2 style="color: ${brandSettings.primary_color || '#1c1c1c'};">${stepInfo.subject}</h2>
-          
-          <div style="white-space: pre-wrap; font-size: 16px; line-height: 1.6; color: #333;">
-            ${stepInfo.body}
-          </div>
-
-          ${imageHtml}
-          
-          <div style="margin-top: 40px; text-align: center;">
-            <a href="${payment.hosted_invoice_url || '#'}" style="background-color: ${brandSettings.primary_color || '#2563eb'}; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-              Update Billing Details
-            </a>
-          </div>
-
-          <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #eaeaea; font-size: 12px; color: #888; text-align: center;">
-            ${brandSettings.footer_text || 'Sent automatically via Dunning engine.'}
-          </div>
-        </div>
-      `;
-
+    // 4. Logica (pe rând pentru fiecare client)
+    for (const client of clients) {
+      // 6. Izolarea Erorilor: Bloc try...catch pentru fiecare client
       try {
-        await resend.emails.send({
-          from: `${brandSettings.sender_name} <${brandSettings.reply_email || 'billing@dunningsaas.com'}>`,
-          to: payment.customer_email,
-          replyTo: brandSettings.reply_email,
-          subject: stepInfo.subject,
-          html: emailHtml,
+        // Inițializează clientul Stripe
+        const stripe = new Stripe(client.stripe_secret_key, { apiVersion: '2026-05-27.dahlia' as any });
+        // Inițializează clientul Resend
+        const resend = new Resend(client.resend_api_key);
+
+        // Extrage pașii lui din dunning_steps
+        const { data: steps } = await supabaseAdmin
+          .from('dunning_steps')
+          .select('*')
+          .eq('profile_id', client.profile_id)
+          .order('step_order', { ascending: true });
+
+        if (!steps || steps.length === 0) continue;
+
+        // Cere de la Stripe toate abonamentele past_due, expandând clientul
+        const subscriptions = await stripe.subscriptions.list({
+          status: 'past_due',
+          expand: ['data.customer'],
         });
 
-        emailsSent++;
+        for (const subscription of subscriptions.data) {
+          // Calculează days_past_due (diferența între Acum și current_period_end)
+          const currentPeriodEnd = subscription.current_period_end * 1000;
+          const daysPastDue = Math.floor((Date.now() - currentPeriodEnd) / (1000 * 60 * 60 * 24));
 
-        const { data: nextStepInfo } = await supabaseAdmin
-          .from('dunning_steps')
-          .select('delay_value, delay_unit')
-          .eq('profile_id', payment.profile_id)
-          .eq('step_order', targetStepOrder + 1)
-          .maybeSingle();
+          // Găsește dacă există un pas în dunning_steps unde delay_value == days_past_due
+          const matchingStep = steps.find(step => step.delay_value === daysPastDue);
 
-        let nextEmailAt = null;
-        if (nextStepInfo) {
-          nextEmailAt = calculateNextDate(new Date(), nextStepInfo.delay_value, nextStepInfo.delay_unit);
+          if (!matchingStep) continue;
+
+          // Verifică dacă acest pas a fost deja trimis în dunning_logs
+          const { data: existingLog } = await supabaseAdmin
+            .from('dunning_logs')
+            .select('id')
+            .eq('profile_id', client.profile_id)
+            .eq('subscription_id', subscription.id)
+            .eq('step_order', matchingStep.step_order)
+            .maybeSingle();
+
+          if (existingLog) continue; // Pasul a fost deja trimis pentru acest abonament
+
+          // Extrage emailul clientului abonat
+          let customerEmail = 'unknown@email.com';
+          if (subscription.customer && typeof subscription.customer !== 'string') {
+            customerEmail = (subscription.customer as Stripe.Customer).email || customerEmail;
+          }
+
+          if (customerEmail === 'unknown@email.com') continue;
+
+          // 5. Trimiterea Emailului
+          const companyName = client.company_name || 'Echipa Noastră';
+          const fromEmail = `${companyName} <onboarding@resend.dev>`;
+
+          const emailHtml = `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #1c1c1c;">
+              <h2 style="color: ${client.primary_color || '#1c1c1c'};">${matchingStep.subject}</h2>
+              
+              <div style="white-space: pre-wrap; font-size: 16px; line-height: 1.6; color: #333;">${matchingStep.body}</div>
+
+              ${matchingStep.image_url ? `<div style="text-align: center; margin: 30px 0;"><img src="${matchingStep.image_url}" alt="Thumbnail" style="max-width: 100%; border-radius: 8px; border: 1px solid #eaeaea;" /></div>` : ''}
+              
+              <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #eaeaea; font-size: 12px; color: #888; text-align: center;">
+                ${client.footer_text || ''}
+              </div>
+            </div>
+          `;
+
+          const emailPayload: any = {
+            from: fromEmail,
+            to: customerEmail,
+            subject: matchingStep.subject,
+            html: emailHtml,
+          };
+
+          // Adaugă reply_to_email dacă există în setări
+          if (client.reply_to_email) {
+            emailPayload.replyTo = client.reply_to_email;
+          } else if (client.reply_email) { // Fallback de siguranță pentru campul vechi
+            emailPayload.replyTo = client.reply_email;
+          }
+
+          try {
+            await resend.emails.send(emailPayload);
+            totalEmailsSent++;
+
+            // Salvează acțiunea în tabelul dunning_logs
+            await supabaseAdmin.from('dunning_logs').insert({
+              profile_id: client.profile_id,
+              customer_email: customerEmail,
+              subscription_id: subscription.id,
+              step_order: matchingStep.step_order
+            });
+
+          } catch (emailErr) {
+            console.error(`Failed to send email to ${customerEmail} via Resend:`, emailErr);
+          }
         }
-
-        await supabaseAdmin
-          .from('failed_payments')
-          .update({ 
-            current_step: targetStepOrder,
-            next_email_at: nextEmailAt 
-          })
-          .eq('id', payment.id);
-
-      } catch (err: any) {
-        console.error(`Failed to send email to ${payment.customer_email}:`, err);
+      } catch (clientErr) {
+        // Izolarea Erorilor: Nu blocăm tot scriptul dacă un client are o eroare
+        console.error(`Error processing client ${client.profile_id}:`, clientErr);
       }
     }
 
-    return NextResponse.json({ message: `Successfully processed and sent ${emailsSent} emails.` });
+    return NextResponse.json({ message: `Successfully processed and sent ${totalEmailsSent} emails.` });
 
   } catch (error: any) {
-    console.error('Cron Error:', error);
+    console.error('Cron Global Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
