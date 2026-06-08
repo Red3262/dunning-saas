@@ -15,6 +15,7 @@ const DashboardOverview = () => {
   const supabase = createClient();
   const [totalEmails, setTotalEmails] = useState(0);
   const [activeWorkflows, setActiveWorkflows] = useState(0);
+  const [recoveredRevenue, setRecoveredRevenue] = useState(0);
   const [recentLogs, setRecentLogs] = useState<DunningLog[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,6 +23,15 @@ const DashboardOverview = () => {
     async function fetchData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Fetch recovered revenue
+      const { data: settings } = await supabase
+        .from("client_settings")
+        .select("total_recovered_revenue")
+        .eq("profile_id", user.id)
+        .maybeSingle();
+      
+      setRecoveredRevenue(settings?.total_recovered_revenue || 0);
 
       // 1. Get total emails sent
       const { count: emailsCount } = await supabase
@@ -78,8 +88,8 @@ const DashboardOverview = () => {
         <div className="p-8 border-2 border-gray-100 rounded-3xl bg-white shadow-sm flex flex-col justify-between">
           <span className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Recovered Revenue</span>
           <div>
-            <span className="text-4xl font-black text-green-500">$0.00</span>
-            <p className="text-xs font-medium text-gray-400 mt-2">Awaiting first successful payment recovery.</p>
+            <span className="text-4xl font-black text-green-500">${recoveredRevenue.toFixed(2)}</span>
+            <p className="text-xs font-medium text-gray-400 mt-2">Recovered automatically via Stripe.</p>
           </div>
         </div>
 
