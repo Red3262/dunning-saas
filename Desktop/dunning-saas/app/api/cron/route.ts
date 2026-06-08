@@ -58,6 +58,7 @@ export async function GET(req: Request) {
 
         for (const subscription of subscriptions.data) {
           // Calculează days_past_due (diferența între Acum și current_period_end)
+         // @ts-ignore
           const currentPeriodEnd = subscription.current_period_end * 1000;
           const daysPastDue = Math.floor((Date.now() - currentPeriodEnd) / (1000 * 60 * 60 * 24));
 
