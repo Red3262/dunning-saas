@@ -50,15 +50,16 @@ export async function GET(req: Request) {
 
         if (!steps || steps.length === 0) continue;
 
-        // Cere de la Stripe toate abonamentele, expandând clientul
+        // Cere de la Stripe toate abonamentele past_due, expandând clientul
         const subscriptions = await stripe.subscriptions.list({
-          status: 'all',
+          status: 'past_due',
           expand: ['data.customer'],
         });
 
         for (const subscription of subscriptions.data) {
-          // Fortăm motorul să creadă că toate abonamentele au fix 1 zi vechime pentru testare
-          const daysPastDue = 1;
+          // Calculează days_past_due (diferența între Acum și current_period_end)
+          const currentPeriodEnd = subscription.current_period_end * 1000;
+          const daysPastDue = Math.floor((Date.now() - currentPeriodEnd) / (1000 * 60 * 60 * 24));
 
           // Găsește dacă există un pas în dunning_steps unde delay_value == days_past_due
           const matchingStep = steps.find(step => step.delay_value === daysPastDue);
@@ -86,7 +87,7 @@ export async function GET(req: Request) {
 
           // 5. Trimiterea Emailului
           const companyName = client.company_name || 'Echipa Noastră';
-          const fromEmail = `${companyName} <onboarding@resend.dev>`;
+          const fromEmail = `${companyName} <${client.reply_to_email || client.reply_email || 'onboarding@resend.dev'}>`;
 
           const emailHtml = `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #1c1c1c;">
