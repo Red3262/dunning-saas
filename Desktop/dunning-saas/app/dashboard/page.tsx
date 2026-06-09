@@ -2,6 +2,16 @@
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend
+} from "recharts";
 
 interface DunningLog {
   id: string;
@@ -11,12 +21,22 @@ interface DunningLog {
   sent_at: string;
 }
 
+// Date mock pentru grafic (mai târziu le putem trage direct din baza de date)
+const chartData = [
+  { name: "Jan", failed: 400, recovered: 240 },
+  { name: "Feb", failed: 300, recovered: 139 },
+  { name: "Mar", failed: 200, recovered: 980 },
+  { name: "Apr", failed: 278, recovered: 390 },
+  { name: "May", failed: 189, recovered: 480 },
+  { name: "Jun", failed: 2390, recovered: 1909 },
+];
+
 const DashboardOverview = () => {
   const supabase = createClient();
   const [totalEmails, setTotalEmails] = useState(0);
   const [activeWorkflows, setActiveWorkflows] = useState(0);
-  const [recoveredRevenue, setRecoveredRevenue] = useState(0);
   const [recentLogs, setRecentLogs] = useState<DunningLog[]>([]);
+  const [recoveredRevenue, setRecoveredRevenue] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,19 +44,10 @@ const DashboardOverview = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch recovered revenue
-      const { data: settings } = await supabase
-        .from("client_settings")
-        .select("total_recovered_revenue")
-        .eq("profile_id", user.id)
-        .maybeSingle();
-      
-      setRecoveredRevenue(settings?.total_recovered_revenue || 0);
-
       // 1. Get total emails sent
       const { count: emailsCount } = await supabase
         .from("dunning_logs")
-        .select("*", { count: 'exact', head: true })
+        .select("*", { count: "exact", head: true })
         .eq("profile_id", user.id);
       
       if (emailsCount !== null) setTotalEmails(emailsCount);
@@ -44,7 +55,7 @@ const DashboardOverview = () => {
       // 2. Get active workflow steps
       const { count: stepsCount } = await supabase
         .from("dunning_steps")
-        .select("*", { count: 'exact', head: true })
+        .select("*", { count: "exact", head: true })
         .eq("profile_id", user.id);
 
       if (stepsCount !== null) setActiveWorkflows(stepsCount);
@@ -58,6 +69,17 @@ const DashboardOverview = () => {
         .limit(5);
 
       if (logsData) setRecentLogs(logsData);
+
+      // 4. Get total recovered revenue (banii tai reali)
+      const { data: settingsData } = await supabase
+        .from("client_settings")
+        .select("total_recovered_revenue")
+        .eq("profile_id", user.id)
+        .single();
+        
+      if (settingsData && settingsData.total_recovered_revenue) {
+        setRecoveredRevenue(Number(settingsData.total_recovered_revenue));
+      }
 
       setLoading(false);
     }
@@ -110,6 +132,41 @@ const DashboardOverview = () => {
         </div>
       </div>
 
+      {/* Recovery Breakdown Chart (Stripe-like) */}
+      <div className="mb-16">
+        <h2 className="text-sm font-bold uppercase tracking-widest text-[#1c1c1c] mb-6">Recovery Breakdown</h2>
+        <div className="p-8 border-2 border-gray-100 rounded-3xl bg-white shadow-sm h-[400px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+              <XAxis 
+                dataKey="name" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: '#9ca3af', fontSize: 12, fontWeight: 500 }} 
+                dy={10}
+              />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: '#9ca3af', fontSize: 12, fontWeight: 500 }}
+                tickFormatter={(value) => `$${value}`}
+              />
+              <Tooltip 
+                cursor={{ fill: '#f9fafb' }}
+                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+              />
+              <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '12px', fontWeight: 600, color: '#4b5563' }} />
+              <Bar dataKey="failed" name="Failed Revenue" fill="#e5e7eb" radius={[4, 4, 0, 0]} barSize={32} />
+              <Bar dataKey="recovered" name="Recovered Revenue" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={32} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       {/* Recent Activity Table */}
       <div>
         <h2 className="text-sm font-bold uppercase tracking-widest text-[#1c1c1c] mb-6">Recent Dunning Activity</h2>
@@ -123,7 +180,7 @@ const DashboardOverview = () => {
             <p className="text-sm text-gray-500 font-medium max-w-md">No recovery emails have been sent yet. The system will automatically detect failed payments and trigger the workflow.</p>
           </div>
         ) : (
-          <div className="overflow-hidden border border-gray-200 rounded-2xl bg-white">
+          <div className="overflow-hidden border border-gray-200 rounded-2xl bg-white shadow-sm">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
