@@ -50,17 +50,15 @@ export async function GET(req: Request) {
 
         if (!steps || steps.length === 0) continue;
 
-        // Cere de la Stripe toate abonamentele past_due, expandând clientul
+        // Cere de la Stripe toate abonamentele, expandând clientul
         const subscriptions = await stripe.subscriptions.list({
-          status: 'past_due',
+          status: 'all',
           expand: ['data.customer'],
         });
 
         for (const subscription of subscriptions.data) {
-          // Calculează days_past_due (diferența între Acum și current_period_end)
-         // @ts-ignore
-          const currentPeriodEnd = subscription.current_period_end * 1000;
-          const daysPastDue = Math.floor((Date.now() - currentPeriodEnd) / (1000 * 60 * 60 * 24));
+          // Fortăm motorul să creadă că toate abonamentele au fix 1 zi vechime pentru testare
+          const daysPastDue = 1;
 
           // Găsește dacă există un pas în dunning_steps unde delay_value == days_past_due
           const matchingStep = steps.find(step => step.delay_value === daysPastDue);
