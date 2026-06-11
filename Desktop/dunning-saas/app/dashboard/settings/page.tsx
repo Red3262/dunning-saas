@@ -1,27 +1,7 @@
 "use client";
 
-// Sus în fișier (dacă nu ai deja, pune lângă alte importuri)
-import Link from 'next/link';
-
-// În interiorul componentei tale, unde vrei să apară butonul:
-const stripeConnectUrl = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID}&scope=read_write`;
-
-{/* Butonul de conectare */}
-<div className="p-8 border-2 border-gray-100 rounded-3xl bg-white shadow-sm mb-8 text-center">
-  <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-    <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M13.976 9.15c-2.172-.806-3.356-1.143-3.356-2.077 0-.696.687-1.225 1.841-1.225 1.528 0 2.628.453 3.653.946l.865-3.363C15.65 2.766 14.12 2.4 12.396 2.4c-4.417 0-7.391 2.308-7.391 5.672 0 4.908 6.844 3.966 6.844 5.92 0 .93-.843 1.341-2.096 1.341-1.636 0-3.344-.658-4.664-1.39l-.92 3.424c1.472.76 3.47 1.258 5.485 1.258 4.67 0 7.552-2.22 7.552-5.786 0-2.455-1.503-3.9-3.23-4.689zM24 11.5c0-6.351-5.149-11.5-11.5-11.5S1 5.149 1 11.5 6.149 23 12.5 23 24 17.851 24 11.5z" opacity=".2"/><path d="M11.988 3.625c-3.155 0-5.28 1.648-5.28 4.051 0 3.506 4.889 2.833 4.889 4.229 0 .664-.602.958-1.497.958-1.168 0-2.389-.47-3.331-.993l-.657 2.446c1.051.543 2.478.898 3.918.898 3.335 0 5.394-1.586 5.394-4.133 0-1.754-1.074-2.786-2.308-3.35-1.551-.575-2.397-.816-2.397-1.483 0-.497.49-.875 1.315-.875 1.092 0 1.878.324 2.61.676l.617-2.402c-.952-.476-2.043-.736-3.273-.736z"/></svg>
-  </div>
-  <h3 className="text-xl font-black text-[#1c1c1c] mb-2">Connect your Stripe Account</h3>
-  <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">
-    Authorize Dunning SaaS to securely monitor your failed payments and recover revenue automatically.
-  </p>
-  <Link href={stripeConnectUrl}>
-    <button className="bg-[#635BFF] hover:bg-[#4B45C6] text-white font-bold py-3 px-8 rounded-full transition-all shadow-md hover:shadow-lg">
-      Connect with Stripe
-    </button>
-  </Link>
-</div>
 import React, { useState, useEffect } from "react";
+import Link from 'next/link';
 import { createClient } from "@/utils/supabase/client";
 
 export default function SettingsPage() {
@@ -41,6 +21,9 @@ export default function SettingsPage() {
     primary_color: "#2563eb",
     footer_text: "",
   });
+
+  // URL-ul pentru conectarea securizată cu Stripe Connect OAuth
+  const stripeConnectUrl = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID}&scope=read_write`;
 
   useEffect(() => {
     async function loadSettings() {
@@ -119,6 +102,22 @@ export default function SettingsPage() {
         <p className="text-sm font-medium text-gray-500">
           Configure your API integrations and brand identity.
         </p>
+      </div>
+
+      {/* Butonul de conectare Stripe */}
+      <div className="p-8 border-2 border-gray-100 rounded-3xl bg-white shadow-sm mb-16 text-center">
+        <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M13.976 9.15c-2.172-.806-3.356-1.143-3.356-2.077 0-.696.687-1.225 1.841-1.225 1.528 0 2.628.453 3.653.946l.865-3.363C15.65 2.766 14.12 2.4 12.396 2.4c-4.417 0-7.391 2.308-7.391 5.672 0 4.908 6.844 3.966 6.844 5.92 0 .93-.843 1.341-2.096 1.341-1.636 0-3.344-.658-4.664-1.39l-.92 3.424c1.472.76 3.47 1.258 5.485 1.258 4.67 0 7.552-2.22 7.552-5.786 0-2.455-1.503-3.9-3.23-4.689zM24 11.5c0-6.351-5.149-11.5-11.5-11.5S1 5.149 1 11.5 6.149 23 12.5 23 24 17.851 24 11.5z" opacity=".2"/><path d="M11.988 3.625c-3.155 0-5.28 1.648-5.28 4.051 0 3.506 4.889 2.833 4.889 4.229 0 .664-.602.958-1.497.958-1.168 0-2.389-.47-3.331-.993l-.657 2.446c1.051.543 2.478.898 3.918.898 3.335 0 5.394-1.586 5.394-4.133 0-1.754-1.074-2.786-2.308-3.35-1.551-.575-2.397-.816-2.397-1.483 0-.497.49-.875 1.315-.875 1.092 0 1.878.324 2.61.676l.617-2.402c-.952-.476-2.043-.736-3.273-.736z"/></svg>
+        </div>
+        <h3 className="text-xl font-black text-[#1c1c1c] mb-2">Connect your Stripe Account</h3>
+        <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">
+          Authorize Dunning SaaS to securely monitor your failed payments and recover revenue automatically.
+        </p>
+        <Link href={stripeConnectUrl}>
+          <button className="bg-[#635BFF] hover:bg-[#4B45C6] text-white font-bold py-3 px-8 rounded-full transition-all shadow-md hover:shadow-lg">
+            Connect with Stripe
+          </button>
+        </Link>
       </div>
 
       {/* AI Coming Soon Card */}
