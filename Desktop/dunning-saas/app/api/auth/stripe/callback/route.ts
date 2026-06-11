@@ -4,10 +4,17 @@ import { createClient } from "@/utils/supabase/server";
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
+  const stripeError = searchParams.get("error");
 
-  // Dacă Stripe nu trimite niciun cod, oprim procesul
+  // Dacă utilizatorul apasă "Reveniți" / "Cancel" pe pagina Stripe
+  if (stripeError) {
+    console.log("Clientul a refuzat conectarea:", stripeError);
+    return NextResponse.redirect(new URL("/dashboard/settings?error=access_denied", request.url));
+  }
+
+  // Dacă lipsește complet codul din alte motive
   if (!code) {
-    return NextResponse.json({ error: "Nu a fost furnizat codul de autorizare Stripe." }, { status: 400 });
+    return NextResponse.redirect(new URL("/dashboard/settings?error=no_code", request.url));
   }
 
   try {
