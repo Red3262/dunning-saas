@@ -23,7 +23,8 @@ export default function SettingsPage() {
   });
 
   // URL-ul pentru conectarea securizată cu Stripe Connect OAuth
-  const stripeConnectUrl = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=ca_UeFI6hTMJN1ugbCIF7XfxSwHtkDPnXXD&scope=read_write`;
+ // Dacă vrei să te întorci pe varianta Live, pune așa:
+const stripeConnectUrl = "https://connect.stripe.com/oauth/authorize?response_type=code&client_id=ca_UeFI6hTMJN1ugbCIF7XfxSwHtkDPnXXD&scope=read_write&redirect_uri=https://dunning-saas-beta.vercel.app/api/auth/stripe/callback";
 
   useEffect(() => {
     async function loadSettings() {
