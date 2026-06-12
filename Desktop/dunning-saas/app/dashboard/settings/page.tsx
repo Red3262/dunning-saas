@@ -20,6 +20,8 @@ export default function SettingsPage() {
     reply_to_email: "",
     primary_color: "#2563eb",
     footer_text: "",
+    ai_provider: "gemini",
+    ai_api_key: "",
   });
 
   // URL-ul pentru conectarea securizată cu Stripe Connect OAuth
@@ -47,6 +49,8 @@ const stripeConnectUrl = "https://connect.stripe.com/oauth/authorize?response_ty
             reply_to_email: data.reply_to_email || "",
             primary_color: data.primary_color || "#2563eb",
             footer_text: data.footer_text || "",
+            ai_provider: data.ai_provider || "gemini",
+            ai_api_key: data.ai_api_key || "",
           });
         }
       }
@@ -188,6 +192,40 @@ const stripeConnectUrl = "https://connect.stripe.com/oauth/authorize?response_ty
                 className="w-full bg-gray-50 border border-gray-200 text-[#1c1c1c] text-sm px-4 py-4 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-[#2563eb] transition-all"
               />
               <p className="text-[11px] text-gray-400 font-medium mt-1">Required for sending automated recovery emails.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Sectiunea AI Engine (NOUĂ) */}
+        <section>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-[#1c1c1c] mb-8 border-b border-gray-200 pb-4 flex items-center gap-2">
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+            AI Autopilot Engine
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-widest text-gray-500">AI Provider</label>
+              <select
+                name="ai_provider"
+                value={formData.ai_provider}
+                onChange={(e) => setFormData({ ...formData, ai_provider: e.target.value })}
+                className="w-full bg-gray-50 border border-gray-200 text-[#1c1c1c] text-sm px-4 py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2563eb] transition-all appearance-none cursor-pointer"
+              >
+                <option value="gemini">Google Gemini (Has Free Tier)</option>
+                <option value="openai">OpenAI (GPT-4 / GPT-3.5)</option>
+                <option value="anthropic">Anthropic (Claude 3)</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Your AI API Key</label>
+              <input
+                type="password"
+                name="ai_api_key"
+                value={formData.ai_api_key}
+                onChange={(e) => setFormData({ ...formData, ai_api_key: e.target.value })}
+                placeholder="Paste your API key here..."
+                className="w-full bg-gray-50 border border-gray-200 text-[#1c1c1c] text-sm px-4 py-4 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-[#2563eb] transition-all"
+              />
             </div>
           </div>
         </section>
