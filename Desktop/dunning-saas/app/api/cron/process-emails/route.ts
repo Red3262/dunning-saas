@@ -9,6 +9,13 @@ const supabaseAdmin = createClient(
 );
 
 export async function GET(req: Request) {
+    // --- SECURITATE CRON ---
+    const authHeader = req.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+      console.error('Tentativă de acces neautorizat la motorul Cron!');
+      return new Response('Unauthorized', { status: 401 });
+    }
+    // -----------------------
   try {
     // 1. Preluăm TOATE facturile eșuate care sunt în așteptare ('pending')
     const { data: pendingPayments, error: paymentsError } = await supabaseAdmin
