@@ -115,10 +115,10 @@ const DashboardOverview = () => {
           </svg>
         </div>
         <h1 className="text-4xl font-black tracking-tight mb-4 text-[#1c1c1c]">
-          You might be losing money.
+          Start recovering lost revenue
         </h1>
         <p className="text-lg text-gray-500 mb-10 leading-relaxed">
-          Before we can recover your failed subscriptions, we need to securely analyze your billing data. Connect your Stripe account to uncover your pending and lost revenue.
+          Securely connect your Stripe account to analyze your billing data and automatically recover failed subscriptions before they churn.
         </p>
         <Link href="/dashboard/settings">
           <button className="bg-[#635BFF] hover:bg-[#4B45C6] text-white font-bold py-4 px-10 rounded-full transition-all shadow-lg hover:shadow-xl text-lg flex items-center gap-3 mx-auto">
