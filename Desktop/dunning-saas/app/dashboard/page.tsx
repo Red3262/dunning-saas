@@ -41,7 +41,8 @@ const DashboardOverview = () => {
   
   // Noile state-uri pentru Stripe
   const [isConnected, setIsConnected] = useState(false);
-  const [atRiskRevenue, setAtRiskRevenue] = useState(2450); // Mock momentan pt "Lost Revenue"
+  const [atRiskRevenue, setAtRiskRevenue] = useState(0);
+  const [failedInvoicesCount, setFailedInvoicesCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -80,12 +81,28 @@ const DashboardOverview = () => {
         .from("client_settings")
         .select("total_recovered_revenue, stripe_account_id")
         .eq("profile_id", user.id)
-        .single();
+        .maybeSingle();
         
       if (settingsData) {
         // Verificăm dacă are Stripe conectat
         if (settingsData.stripe_account_id) {
           setIsConnected(true);
+          
+          // --- MAGIA: Aducem datele Live de la Stripe în mod ascuns ---
+          try {
+            const response = await fetch("/api/stripe/sync");
+            const stripeData = await response.json();
+            
+            if (stripeData.success) {
+                setAtRiskRevenue(stripeData.atRiskRevenue);
+                setFailedInvoicesCount(stripeData.failedCount);
+            } else {
+                console.error("Eroare fetching Stripe:", stripeData.error);
+            }
+          } catch (err) {
+            console.error("Eroare de rețea la fetch Stripe data", err);
+          }
+          // -----------------------------------------------------------
         }
         if (settingsData.total_recovered_revenue) {
           setRecoveredRevenue(Number(settingsData.total_recovered_revenue));
@@ -153,7 +170,7 @@ const DashboardOverview = () => {
           </span>
           <div>
             <span className="text-4xl font-black text-[#1c1c1c]">${atRiskRevenue.toFixed(2)}</span>
-            <p className="text-[11px] font-medium text-gray-500 mt-2">Pending from failed invoices.</p>
+            <p className="text-[11px] font-medium text-gray-500 mt-2">Pending from {failedInvoicesCount} failed invoices.</p>
           </div>
         </div>
 

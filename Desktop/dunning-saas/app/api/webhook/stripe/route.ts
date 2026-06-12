@@ -1,43 +1,67 @@
+import { headers } from "next/headers";
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
+// Folosim cheia de Service Role pentru a avea drepturi de admin asupra bazei de date
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Inițializăm Stripe cu API version-ul tău specific
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'dummy', { 
+  apiVersion: '2026-05-27.dahlia' as any 
+});
+
 export async function POST(req: Request) {
   try {
     const body = await req.text();
-    const signature = req.headers.get('stripe-signature');
-    
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('userId');
+    // Preluăm semnătura Stripe din headere
+    const signature = (await headers()).get("Stripe-Signature") as string;
 
-    if (!userId || !signature) {
-      return NextResponse.json({ error: 'Missing userId or signature' }, { status: 400 });
+    if (!signature) {
+      return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
     }
 
-    const { data: settings } = await supabaseAdmin
-      .from('client_settings')
-      .select('stripe_webhook_secret')
-      .eq('profile_id', userId)
-      .single();
-
-    if (!settings?.stripe_webhook_secret) {
-      return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 400 });
-    }
-
-    // Aici am actualizat versiunea la cerința exactă a pachetului tău
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'dummy', { apiVersion: '2026-05-27.dahlia' as any });
+    let event: Stripe.Event;
     
-    let event;
     try {
-      event = stripe.webhooks.constructEvent(body, signature, settings.stripe_webhook_secret);
+      // NOU: Folosim secretul TĂU universal (Connect Webhook Secret) în loc să-l căutăm pe al clientului
+      event = stripe.webhooks.constructEvent(
+        body, 
+        signature, 
+        process.env.STRIPE_WEBHOOK_SECRET! 
+      );
     } catch (err: any) {
+      console.error(`⚠️ Eroare de Securitate Webhook:`, err.message);
       return NextResponse.json({ error: err.message }, { status: 400 });
     }
+
+    // --- MAGIA MULTI-TENANCY ---
+    // Stripe ne spune din ce cont conectat a venit evenimentul
+    const connectedAccountId = event.account;
+
+    if (!connectedAccountId) {
+      console.log("Ignorăm evenimentul. Nu aparține unui cont Stripe conectat.");
+      return NextResponse.json({ received: true });
+    }
+
+    // Căutăm în baza noastră de date CĂRUI utilizator (profile_id) îi aparține acest cont Stripe
+    const { data: settings } = await supabaseAdmin
+      .from('client_settings')
+      .select('profile_id')
+      .eq('stripe_account_id', connectedAccountId)
+      .single();
+
+    if (!settings?.profile_id) {
+      console.error(`Eroare: Nu avem client asociat pentru ID-ul Stripe ${connectedAccountId}`);
+      return NextResponse.json({ error: 'Client not mapped' }, { status: 404 });
+    }
+
+    const userId = settings.profile_id;
+
+    // --- LOGICA TA DE BUSINESS (Păstrată intactă) ---
 
     if (event.type === 'invoice.payment_failed') {
       const invoice = event.data.object as Stripe.Invoice;
@@ -73,7 +97,7 @@ export async function POST(req: Request) {
           hosted_invoice_url: hostedInvoiceUrl
         });
 
-      console.log(`❌ Eșec înregistrat. Motorul de dunning va prelua factura: ${invoice.id}`);
+      console.log(`❌ Eșec înregistrat. Motorul de dunning va prelua factura: ${invoice.id} (Client: ${userId})`);
     }
 
     else if (event.type === 'invoice.payment_succeeded') {
@@ -86,13 +110,14 @@ export async function POST(req: Request) {
         .eq('profile_id', userId);
 
       if (!error) {
-        console.log(`✅ SUCCES! Factura ${invoice.id} a fost recuperată. Motorul de emailuri s-a oprit.`);
+        console.log(`✅ SUCCES! Factura ${invoice.id} a fost recuperată. (Client: ${userId})`);
       }
     }
 
     return NextResponse.json({ received: true }, { status: 200 });
 
   } catch (error: any) {
+    console.error("Webhook Internal Error:", error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
