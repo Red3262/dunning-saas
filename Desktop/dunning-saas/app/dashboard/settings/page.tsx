@@ -125,28 +125,23 @@ const stripeConnectUrl = "https://connect.stripe.com/oauth/authorize?response_ty
         </Link>
       </div>
 
-      {/* AI Coming Soon Card */}
-      <div className="mb-16 p-8 bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 rounded-3xl relative overflow-hidden">
+      {/* AI Active Card */}
+      <div className="mb-16 p-8 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 rounded-3xl relative overflow-hidden">
         <div className="absolute top-6 right-6">
-          <span className="bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full">
-            Coming Soon
+          <span className="bg-green-500 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
+            Active
           </span>
         </div>
         <div className="flex items-start gap-6">
-          <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-indigo-100 flex items-center justify-center flex-shrink-0">
-            <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-green-100 flex items-center justify-center flex-shrink-0">
+            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
           </div>
           <div>
-            <h3 className="text-xl font-black text-gray-900 mb-2">Smart AI Dunning <span className="text-sm font-bold text-indigo-600 ml-2">(Beta)</span></h3>
-            <p className="text-sm text-gray-600 font-medium leading-relaxed max-w-xl mb-6">
-              Our AI agent will automatically analyze your Stripe data, write hyper-personalized recovery emails, detect branding from your website, and create an optimized recovery schedule. All generated plans require your manual approval (Human-in-the-loop) before activation.
+            <h3 className="text-xl font-black text-gray-900 mb-2">Smart AI Autopilot</h3>
+            <p className="text-sm text-gray-600 font-medium leading-relaxed max-w-xl mb-0">
+              Your recovery engine is powered by your selected AI provider. It automatically analyzes failed payments and dispatches hyper-personalized recovery emails using the API key you provide below.
             </p>
-            <div className="flex items-center gap-3 opacity-50">
-              <div className="w-12 h-6 bg-gray-300 rounded-full relative cursor-not-allowed">
-                <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1"></div>
-              </div>
-              <span className="text-xs font-bold uppercase tracking-widest text-gray-500">Disabled</span>
-            </div>
           </div>
         </div>
       </div>
